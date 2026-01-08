@@ -2,7 +2,9 @@ package com.gateproxy;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.ConnectException;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 
 final class ClientHandler implements Runnable {
@@ -38,8 +40,12 @@ final class ClientHandler implements Runnable {
             }
         } catch (MalformedHttpRequestException ex) {
             writeError(400, "Bad Request");
+        } catch (SocketTimeoutException ex) {
+            writeError(504, "Gateway Timeout");
+        } catch (ConnectException ex) {
+            writeError(502, "Bad Gateway");
         } catch (IOException ex) {
-            // Client disconnect or origin failure.
+            // Client disconnect or broken pipe.
         } finally {
             closeQuietly(clientSocket);
             onComplete.run();
@@ -56,9 +62,23 @@ final class ClientHandler implements Runnable {
         }
 
         byte[] response = forwarder.forwardAndCapture(request);
-        cache.put(cacheKey, new CachedResponse(response));
+        if (isCacheable(response)) {
+            cache.put(cacheKey, new CachedResponse(response));
+        }
         clientOut.write(response);
         clientOut.flush();
+    }
+
+    private static boolean isCacheable(byte[] response) {
+        if (response == null || response.length < 12) {
+            return false;
+        }
+        String statusLine = new String(response, 0, Math.min(response.length, 64), StandardCharsets.US_ASCII);
+        int lineEnd = statusLine.indexOf("\r\n");
+        if (lineEnd <= 0) {
+            return false;
+        }
+        return statusLine.substring(0, lineEnd).startsWith("HTTP/1.1 200");
     }
 
     private void writeError(int status, String message) {
