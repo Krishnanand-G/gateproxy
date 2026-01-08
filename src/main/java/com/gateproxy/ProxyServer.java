@@ -3,12 +3,17 @@ package com.gateproxy;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ProxyServer implements AutoCloseable {
     private final ProxyConfig config;
     private final OriginForwarder forwarder;
     private final ResponseCache cache;
+    private final ExecutorService executor;
+    private final Semaphore connectionPermits;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ServerSocket serverSocket;
 
@@ -16,6 +21,8 @@ public final class ProxyServer implements AutoCloseable {
         this.config = config;
         this.forwarder = new OriginForwarder(config.originConnectTimeoutMs(), config.originReadTimeoutMs());
         this.cache = new ResponseCache(config.cacheCapacity());
+        this.executor = Executors.newFixedThreadPool(config.threadPoolSize());
+        this.connectionPermits = new Semaphore(config.maxConcurrentConnections());
     }
 
     public ResponseCache cache() {
@@ -36,15 +43,34 @@ public final class ProxyServer implements AutoCloseable {
         while (running.get()) {
             try {
                 Socket client = serverSocket.accept();
-                Thread handler = new Thread(
-                        new ClientHandler(client, config, forwarder, cache, () -> { }),
-                        "gateproxy-client");
-                handler.setDaemon(true);
-                handler.start();
+                if (!connectionPermits.tryAcquire()) {
+                    rejectServiceUnavailable(client);
+                    continue;
+                }
+                executor.submit(new ClientHandler(client, config, forwarder, cache, connectionPermits::release));
             } catch (IOException ex) {
                 if (running.get()) {
                     // Accept loop ends when server socket closes.
                 }
+            }
+        }
+    }
+
+    private static void rejectServiceUnavailable(Socket client) {
+        try {
+            String body = "Service Unavailable\r\n";
+            String response = "HTTP/1.1 503 Service Unavailable\r\n"
+                    + "Content-Type: text/plain\r\n"
+                    + "Content-Length: " + body.length() + "\r\n"
+                    + "Connection: close\r\n\r\n"
+                    + body;
+            client.getOutputStream().write(response.getBytes());
+            client.getOutputStream().flush();
+        } catch (IOException ignored) {
+        } finally {
+            try {
+                client.close();
+            } catch (IOException ignored) {
             }
         }
     }
@@ -62,5 +88,6 @@ public final class ProxyServer implements AutoCloseable {
             } catch (IOException ignored) {
             }
         }
+        executor.shutdownNow();
     }
 }
