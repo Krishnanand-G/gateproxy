@@ -1,5 +1,6 @@
 package com.gateproxy;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,17 +18,31 @@ public final class OriginForwarder {
     }
 
     public void forward(HttpRequest request, OutputStream clientOut) throws IOException {
-        try (Socket origin = new Socket()) {
-            origin.connect(new InetSocketAddress(request.originHost(), request.originPort()), connectTimeoutMs);
-            origin.setSoTimeout(readTimeoutMs);
-
-            OutputStream originOut = origin.getOutputStream();
-            originOut.write(buildOriginRequest(request).getBytes(StandardCharsets.US_ASCII));
-            originOut.write(request.body());
-            originOut.flush();
-
+        try (Socket origin = openOrigin(request)) {
+            writeOriginRequest(origin, request);
             streamResponse(origin.getInputStream(), clientOut);
         }
+    }
+
+    public byte[] forwardAndCapture(HttpRequest request) throws IOException {
+        try (Socket origin = openOrigin(request)) {
+            writeOriginRequest(origin, request);
+            return readAll(origin.getInputStream());
+        }
+    }
+
+    private Socket openOrigin(HttpRequest request) throws IOException {
+        Socket origin = new Socket();
+        origin.connect(new InetSocketAddress(request.originHost(), request.originPort()), connectTimeoutMs);
+        origin.setSoTimeout(readTimeoutMs);
+        return origin;
+    }
+
+    private static void writeOriginRequest(Socket origin, HttpRequest request) throws IOException {
+        OutputStream originOut = origin.getOutputStream();
+        originOut.write(buildOriginRequest(request).getBytes(StandardCharsets.US_ASCII));
+        originOut.write(request.body());
+        originOut.flush();
     }
 
     private static String buildOriginRequest(HttpRequest request) {
@@ -64,5 +79,15 @@ public final class OriginForwarder {
             clientOut.write(buffer, 0, read);
             clientOut.flush();
         }
+    }
+
+    private static byte[] readAll(InputStream input) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] chunk = new byte[8192];
+        int read;
+        while ((read = input.read(chunk)) != -1) {
+            buffer.write(chunk, 0, read);
+        }
+        return buffer.toByteArray();
     }
 }

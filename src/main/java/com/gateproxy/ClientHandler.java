@@ -9,12 +9,18 @@ final class ClientHandler implements Runnable {
     private final Socket clientSocket;
     private final ProxyConfig config;
     private final OriginForwarder forwarder;
+    private final ResponseCache cache;
     private final Runnable onComplete;
 
-    ClientHandler(Socket clientSocket, ProxyConfig config, OriginForwarder forwarder, Runnable onComplete) {
+    ClientHandler(Socket clientSocket,
+                  ProxyConfig config,
+                  OriginForwarder forwarder,
+                  ResponseCache cache,
+                  Runnable onComplete) {
         this.clientSocket = clientSocket;
         this.config = config;
         this.forwarder = forwarder;
+        this.cache = cache;
         this.onComplete = onComplete;
     }
 
@@ -24,7 +30,12 @@ final class ClientHandler implements Runnable {
             clientSocket.setSoTimeout(config.originReadTimeoutMs());
             HttpRequest request = HttpRequest.parse(clientSocket.getInputStream());
             OutputStream clientOut = clientSocket.getOutputStream();
-            forwarder.forward(request, clientOut);
+
+            if (request.isGet()) {
+                serveGet(request, clientOut);
+            } else {
+                forwarder.forward(request, clientOut);
+            }
         } catch (MalformedHttpRequestException ex) {
             writeError(400, "Bad Request");
         } catch (IOException ex) {
@@ -33,6 +44,21 @@ final class ClientHandler implements Runnable {
             closeQuietly(clientSocket);
             onComplete.run();
         }
+    }
+
+    private void serveGet(HttpRequest request, OutputStream clientOut) throws IOException {
+        String cacheKey = request.cacheKey();
+        CachedResponse cached = cache.get(cacheKey);
+        if (cached != null) {
+            clientOut.write(cached.bytes());
+            clientOut.flush();
+            return;
+        }
+
+        byte[] response = forwarder.forwardAndCapture(request);
+        cache.put(cacheKey, new CachedResponse(response));
+        clientOut.write(response);
+        clientOut.flush();
     }
 
     private void writeError(int status, String message) {

@@ -8,12 +8,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class ProxyServer implements AutoCloseable {
     private final ProxyConfig config;
     private final OriginForwarder forwarder;
+    private final ResponseCache cache;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ServerSocket serverSocket;
 
     public ProxyServer(ProxyConfig config) {
         this.config = config;
         this.forwarder = new OriginForwarder(config.originConnectTimeoutMs(), config.originReadTimeoutMs());
+        this.cache = new ResponseCache(config.cacheCapacity());
+    }
+
+    public ResponseCache cache() {
+        return cache;
     }
 
     public void start() throws IOException {
@@ -31,7 +37,7 @@ public final class ProxyServer implements AutoCloseable {
             try {
                 Socket client = serverSocket.accept();
                 Thread handler = new Thread(
-                        new ClientHandler(client, config, forwarder, () -> { }),
+                        new ClientHandler(client, config, forwarder, cache, () -> { }),
                         "gateproxy-client");
                 handler.setDaemon(true);
                 handler.start();
