@@ -1,8 +1,8 @@
-target/
-.idea/
+/target/
+/.idea/
 *.iml
 .classpath
 .project
 .settings/
 *.log
-.DS_Store
+/mvnw.cmd.new

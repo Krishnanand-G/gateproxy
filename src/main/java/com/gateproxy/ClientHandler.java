@@ -23,14 +23,12 @@ final class ClientHandler implements Runnable {
         try {
             clientSocket.setSoTimeout(config.originReadTimeoutMs());
             HttpRequest request = HttpRequest.parse(clientSocket.getInputStream());
-            byte[] response = forwarder.forward(request);
             OutputStream clientOut = clientSocket.getOutputStream();
-            clientOut.write(response);
-            clientOut.flush();
+            forwarder.forward(request, clientOut);
         } catch (MalformedHttpRequestException ex) {
             writeError(400, "Bad Request");
         } catch (IOException ex) {
-            // Client disconnect or origin failure; no response when client already closed.
+            // Client disconnect or origin failure.
         } finally {
             closeQuietly(clientSocket);
             onComplete.run();

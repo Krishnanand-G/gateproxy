@@ -1,6 +1,5 @@
 package com.gateproxy;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,7 +16,7 @@ public final class OriginForwarder {
         this.readTimeoutMs = readTimeoutMs;
     }
 
-    public byte[] forward(HttpRequest request) throws IOException {
+    public void forward(HttpRequest request, OutputStream clientOut) throws IOException {
         try (Socket origin = new Socket()) {
             origin.connect(new InetSocketAddress(request.originHost(), request.originPort()), connectTimeoutMs);
             origin.setSoTimeout(readTimeoutMs);
@@ -27,7 +26,7 @@ public final class OriginForwarder {
             originOut.write(request.body());
             originOut.flush();
 
-            return readAll(origin.getInputStream());
+            streamResponse(origin.getInputStream(), clientOut);
         }
     }
 
@@ -58,13 +57,12 @@ public final class OriginForwarder {
         return builder.toString();
     }
 
-    private static byte[] readAll(InputStream input) throws IOException {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        byte[] chunk = new byte[8192];
+    private static void streamResponse(InputStream originIn, OutputStream clientOut) throws IOException {
+        byte[] buffer = new byte[8192];
         int read;
-        while ((read = input.read(chunk)) != -1) {
-            buffer.write(chunk, 0, read);
+        while ((read = originIn.read(buffer)) != -1) {
+            clientOut.write(buffer, 0, read);
+            clientOut.flush();
         }
-        return buffer.toByteArray();
     }
 }
