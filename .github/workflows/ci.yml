@@ -49,6 +49,5 @@ jobs:
 
             Runnable jar attached.
 
-            Live demo: see repository homepage / About section after deploy.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
