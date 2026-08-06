@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Test
+        run: ./mvnw -B test
+      - name: Package
+        run: ./mvnw -B -DskipTests package
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateproxy-jar
+          path: target/gateproxy-1.0.0.jar
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: gateproxy-jar
+          path: dist
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/gateproxy-1.0.0.jar
+          generate_release_notes: true
+          body: |
+            ## GateProxy ${{ github.ref_name }}
+
+            Runnable jar attached.
+
+            Live demo: see repository homepage / About section after deploy.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

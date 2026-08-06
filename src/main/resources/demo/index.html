@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GateProxy</title>
+  <style>
+    :root {
+      --bg: #0c0d0f;
+      --bg-elevated: #14161a;
+      --line: rgba(255, 255, 255, 0.08);
+      --text: #f4f5f7;
+      --muted: #9aa3b2;
+      --accent: #3dd68c;
+      --accent-dim: rgba(61, 214, 140, 0.14);
+      --danger: #ff6b6b;
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      --font: "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --mono: "Cascadia Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(900px 480px at 12% -10%, rgba(61, 214, 140, 0.12), transparent 55%),
+        radial-gradient(700px 420px at 90% 0%, rgba(120, 140, 180, 0.08), transparent 50%),
+        var(--bg);
+      line-height: 1.5;
+    }
+
+    .wrap {
+      width: min(920px, calc(100% - 2.5rem));
+      margin: 0 auto;
+      padding: 4.5rem 0 5rem;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+      animation: rise 420ms var(--ease-out) forwards;
+    }
+
+    .brand-dot {
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-dim);
+    }
+
+    h1 {
+      margin: 1rem 0 0.75rem;
+      font-size: clamp(2.4rem, 6vw, 3.6rem);
+      letter-spacing: -0.045em;
+      line-height: 1.05;
+      font-weight: 650;
+      max-width: 12ch;
+      opacity: 0;
+      transform: translateY(10px) scale(0.98);
+      animation: rise 480ms var(--ease-out) 60ms forwards;
+    }
+
+    .lede {
+      margin: 0;
+      max-width: 42ch;
+      color: var(--muted);
+      font-size: 1.05rem;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: rise 480ms var(--ease-out) 110ms forwards;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: rise 480ms var(--ease-out) 160ms forwards;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 0.7rem 1.15rem;
+      font: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 140ms var(--ease-out), background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #06140d;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--line);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .btn-primary:hover { filter: brightness(1.05); }
+      .btn-secondary:hover { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); }
+    }
+
+    .panel {
+      margin-top: 2.75rem;
+      border: 1px solid var(--line);
+      border-radius: 1.25rem;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%), var(--bg-elevated);
+      padding: 1.25rem;
+      opacity: 0;
+      transform: translateY(12px) scale(0.985);
+      animation: rise 520ms var(--ease-out) 220ms forwards;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 720px) {
+      .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 0.9rem;
+      padding: 0.9rem 1rem;
+      background: rgba(0, 0, 0, 0.18);
+      opacity: 0;
+      transform: translateY(8px);
+      animation: rise 420ms var(--ease-out) forwards;
+    }
+
+    .metric:nth-child(1) { animation-delay: 280ms; }
+    .metric:nth-child(2) { animation-delay: 330ms; }
+    .metric:nth-child(3) { animation-delay: 380ms; }
+    .metric:nth-child(4) { animation-delay: 430ms; }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 0.35rem;
+      font-size: 1.45rem;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .log {
+      margin-top: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 0.9rem;
+      padding: 1rem;
+      min-height: 7.5rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .log[data-tone="ok"] { color: var(--accent); }
+    .log[data-tone="err"] { color: var(--danger); }
+
+    .footer {
+      margin-top: 1.5rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      opacity: 0;
+      animation: rise 420ms var(--ease-out) 480ms forwards;
+    }
+
+    .footer a {
+      color: var(--text);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+
+    @keyframes rise {
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .brand, h1, .lede, .actions, .panel, .metric, .footer {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      .btn { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="brand"><span class="brand-dot" aria-hidden="true"></span> GateProxy live demo</div>
+    <h1>HTTP proxy with a memory.</h1>
+    <p class="lede">
+      Java forward proxy with an LRU response cache, concurrency limits, and measured cache hits.
+      This public instance is locked to a demo origin.
+    </p>
+    <div class="actions">
+      <button class="btn btn-primary" id="probe" type="button">Run cache probe</button>
+      <a class="btn btn-secondary" href="/metrics">Raw metrics</a>
+    </div>
+
+    <section class="panel" aria-label="Live metrics">
+      <div class="metrics">
+        <div class="metric"><span>Hit rate</span><strong id="hitRate">—</strong></div>
+        <div class="metric"><span>Cache size</span><strong id="cacheSize">—</strong></div>
+        <div class="metric"><span>Origin calls</span><strong id="originForwards">—</strong></div>
+        <div class="metric"><span>Requests</span><strong id="requests">—</strong></div>
+      </div>
+      <div class="log" id="log" aria-live="polite">Press “Run cache probe” twice. First call misses. Second should hit.</div>
+    </section>
+
+    <p class="footer">
+      Source on
+      <a href="https://github.com/Krishnanand-G/gateproxy" rel="noreferrer">GitHub</a>
+      · Health at <a href="/health">/health</a>
+    </p>
+  </main>
+  <script>
+    const hitRate = document.getElementById("hitRate");
+    const cacheSize = document.getElementById("cacheSize");
+    const originForwards = document.getElementById("originForwards");
+    const requests = document.getElementById("requests");
+    const log = document.getElementById("log");
+    const probe = document.getElementById("probe");
+
+    async function refreshMetrics() {
+      const res = await fetch("/metrics", { cache: "no-store" });
+      if (!res.ok) throw new Error("metrics failed");
+      const data = await res.json();
+      hitRate.textContent = (data.hitRate * 100).toFixed(1) + "%";
+      cacheSize.textContent = data.cacheSize + " / " + data.cacheCapacity;
+      originForwards.textContent = data.originForwards;
+      requests.textContent = data.requests;
+      return data;
+    }
+
+    async function runProbe() {
+      probe.disabled = true;
+      log.dataset.tone = "";
+      log.textContent = "Probing demo origin through the proxy…";
+      try {
+        const res = await fetch("/api/probe", { cache: "no-store" });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "probe failed");
+        await refreshMetrics();
+        log.dataset.tone = "ok";
+        log.textContent =
+          (data.cacheHit ? "CACHE HIT" : "CACHE MISS") +
+          " · " + data.latencyMs + " ms\n" +
+          "originRequests=" + data.originRequests + "\n" +
+          "payload=" + data.payload;
+      } catch (err) {
+        log.dataset.tone = "err";
+        log.textContent = String(err.message || err);
+      } finally {
+        probe.disabled = false;
+      }
+    }
+
+    probe.addEventListener("click", runProbe);
+    refreshMetrics().catch(() => {
+      log.dataset.tone = "err";
+      log.textContent = "Could not load metrics yet.";
+    });
+  </script>
+</body>
+</html>
